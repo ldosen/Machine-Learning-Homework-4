@@ -1,10 +1,10 @@
 import pandas as pd
 import numpy as np
-import nltk
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from collections import Counter
 from sklearn import metrics
+from random import randrange
 
 
 class Vectorizer(object):
@@ -44,42 +44,25 @@ class Vectorizer(object):
         return featureset
 
 
-class Cross_Validation(object):
+class K_Fold(object):
+    def cross_validation(self, model, X, y, k):
+        X_split = np.array_split(X, k)
+        y_split = np.array_split(y, k)
 
-    def partition(self, vector, fold, k):
-        size = int(vector.shape[0])
-        start = int((size/k)*fold)
-        end = int((size/k)*(fold+1))
-        validation = vector[start:end]
+        X_test = X_split[0]
+        del X_split[0]
 
-        if str(type(vector)) == "<class 'scipy.sparse.csr.csr_matrix'>":
-            indices = range(start, end)
-            mask = np.ones(vector.shape[0], dtype=bool)
-            mask[indices] = False
-            training = vector[mask]
-        elif str(type(vector)) == "<type 'numpy.ndarray'>":
-            training = np.concatenate((vector[:start], vector[end:]))
-        return training, validation
+        y_test = y_split[0]
+        del y_split[0]
 
-    def cross_validation(self, learner, k, data, labels):
-        train_folds_score = []
-        validation_folds_score = []
+        scores = []
 
-        for fold in range(k):
-            # create training, validation sets/labels
-            training_set, validation_set = self.partition(data, fold, k)
-            training_labels, validation_labels = self.partition(labels, fold, k)
+        for fold in range(k - 1):
+            model.fit(X_split[fold], y_split[fold])
+            score = model.score(X_test, y_test)
+            scores.append(score)
 
-            # fit the machine learning model to the new sets and predict
-            learner.fit(training_set, training_labels)
-            training_predicted = learner.predict(training_set)
-            validation_predicted = learner.predict(validation_set)
-
-            # add the scores to the record
-            train_folds_score.append(metrics.accuracy_score(training_labels, training_predicted))
-            validation_folds_score.append(metrics.accuracy_score(validation_labels, validation_predicted))
-
-        return train_folds_score, validation_folds_score
+        return scores
 
 
 data = pd.read_csv('movie_reviews.csv')
@@ -97,8 +80,9 @@ X_train = vect.fit_transform(X_train, 20, 10)
 X_test = vect.fit_transform(X_test, 20, 10)
 
 lreg = LogisticRegression()
-cv = Cross_Validation()
 
-score = cv.cross_validation(lreg, 10, X_train, y_train)
-print("Train score", str(score[0]))
-print("Test score", str(score[1]))
+kfold = K_Fold()
+
+scores = kfold.cross_validation(lreg, X_train, y_train, 10)
+print("k-fold scores:\n", scores)
+
