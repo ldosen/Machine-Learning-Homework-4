@@ -4,10 +4,13 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from collections import Counter
 from sklearn import metrics
-from random import randrange
 
 
 class Vectorizer(object):
+
+    def __init__(self, n, m):
+        self.n = n
+        self.m = m
 
     def extract_words(self, sentences, count_max, count_min):
         words_raw = []
@@ -26,8 +29,8 @@ class Vectorizer(object):
 
         return words
 
-    def fit_transform(self, sentences, n, m):
-        lexicon = self.extract_words(sentences, n, m)
+    def fit_transform(self, sentences):
+        lexicon = self.extract_words(sentences, self.n, self.m)
         featureset = []
 
         for w in sentences:
@@ -45,6 +48,7 @@ class Vectorizer(object):
 
 
 class K_Fold(object):
+
     def cross_validation(self, model, X, y, k):
         X_split = np.array_split(X, k)
         y_split = np.array_split(y, k)
@@ -65,6 +69,31 @@ class K_Fold(object):
         return scores
 
 
+class gridSearchTwo(object):
+
+    def __init__(self, model, vectorizer, model_params, vectorizer_params):
+        self.model = model
+        self.vectorizer = vectorizer
+        self.model_params = model_params # a dict containing and array of parameters
+        self.vectorizer_params = vectorizer_params # a dict containing and array of parameters
+
+    def fit(self, X, y):
+
+        all_scores = []
+        k_fold = K_Fold()
+
+        for i in range(len(self.vectorizer_params)):
+            self.vectorizer(self.vectorizer_params.get('n')[i], self.vectorizer_params.get('m')[i])
+            X_new = self.vectorizer.fit_transform(X)
+            for j in range(len(self.model_params)):
+                self.model(C=self.model_params.get('C')[j])
+                scores = k_fold.cross_validation(self.model, X_new, y, 10)
+                all_scores.extend(scores)
+
+        sorted_all_scores = sorted(all_scores)
+        return sorted_all_scores[0]
+
+
 data = pd.read_csv('movie_reviews.csv')
 
 
@@ -75,9 +104,9 @@ X, y = data.iloc[:, 0].values, data.iloc[:, 1].values
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=1337)
 
 # transform the words in vectors
-vect = Vectorizer()
-X_train = vect.fit_transform(X_train, 20, 10)
-X_test = vect.fit_transform(X_test, 20, 10)
+vect = Vectorizer(20, 10)
+X_train = vect.fit_transform(X_train)
+X_test = vect.fit_transform(X_test)
 
 lreg = LogisticRegression()
 
@@ -85,4 +114,8 @@ kfold = K_Fold()
 
 scores = kfold.cross_validation(lreg, X_train, y_train, 10)
 print("k-fold scores:\n", scores)
+
+vect_params = {'n': [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+               'm': [0, 5, 10, 15, 20, 25, 30, 35, 40, 45]}
+
 
