@@ -4,11 +4,12 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from collections import Counter
 from sklearn import metrics
+from statistics import mean
 
 
 class Vectorizer(object):
 
-    def __init__(self, n, m):
+    def __init__(self, n=0, m=0):
         self.n = n
         self.m = m
 
@@ -71,9 +72,7 @@ class K_Fold(object):
 
 class gridSearchTwo(object):
 
-    def __init__(self, model, vectorizer, model_params, vectorizer_params):
-        self.model = model
-        self.vectorizer = vectorizer
+    def __init__(self, model_params, vectorizer_params):
         self.model_params = model_params # a dict containing and array of parameters
         self.vectorizer_params = vectorizer_params # a dict containing and array of parameters
 
@@ -83,12 +82,12 @@ class gridSearchTwo(object):
         k_fold = K_Fold()
 
         for i in range(len(self.vectorizer_params)):
-            self.vectorizer(self.vectorizer_params.get('n')[i], self.vectorizer_params.get('m')[i])
-            X_new = self.vectorizer.fit_transform(X)
+            vect = Vectorizer(self.vectorizer_params.get('n')[i], self.vectorizer_params.get('m')[i])
+            X_new = vect.fit_transform(X)
             for j in range(len(self.model_params)):
-                self.model(C=self.model_params.get('C')[j])
-                scores = k_fold.cross_validation(self.model, X_new, y, 10)
-                all_scores.extend(scores)
+                model = LogisticRegression(C=self.model_params.get('C')[j])
+                scores = k_fold.cross_validation(model, X_new, y, 10)
+                all_scores.extend(mean(scores))
 
         sorted_all_scores = sorted(all_scores)
         return sorted_all_scores[0]
@@ -104,18 +103,13 @@ X, y = data.iloc[:, 0].values, data.iloc[:, 1].values
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=1337)
 
 # transform the words in vectors
-vect = Vectorizer(20, 10)
+vect = Vectorizer(900, 10)
 X_train = vect.fit_transform(X_train)
 X_test = vect.fit_transform(X_test)
 
-lreg = LogisticRegression()
+lreg = LogisticRegression(C=0.1)
 
-kfold = K_Fold()
-
-scores = kfold.cross_validation(lreg, X_train, y_train, 10)
-print("k-fold scores:\n", scores)
-
-vect_params = {'n': [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
-               'm': [0, 5, 10, 15, 20, 25, 30, 35, 40, 45]}
+lreg.fit(X_train, y_train)
+score = lreg.score(X_train, y_train)
 
 
